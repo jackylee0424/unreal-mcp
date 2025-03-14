@@ -2,23 +2,20 @@
 
 This repository contains a Model Context Protocol (MCP) Python server that allows Claude Desktop to interact with Unreal Engine 5.3 (via Remote Control API), creating and manipulating 3D objects based on text prompts. This is an early build with the help from Claude and inspired by the Blender MCP project at https://github.com/ahujasid/blender-mcp.
 
-## Claude Desktop Config
-
 ## Quick Start
 ### 1. Requirements
   - Python 3.10
   - Unreal Engine 5.3 with Remote Control API (plugin) enabled
   - Claude Desktop (Windows)
 
-
-### 2. Install Required Packages
-
+### 2. Git Clone & Install Required Packages
+Clone the repo and pip install
 ```bash
 pip install uv mcp requests
 ```
 
 ### 3. Configure Claude Desktop
-change the path to your local path
+Go to Claude Desktop -> File -> Settings -> Developer -> Edit Config `claude_desktop_config.json` and change the path to your local repo path
 ```
   {
     "mcpServers": {
@@ -30,6 +27,12 @@ change the path to your local path
     }
   }
 ```
+### 4. Launch Unreal Engine
+Leave your UE project open
+
+### 5. Launch Claude Desktop
+Need to launch it clean. Claude Desktop may hide in the system tray. Quit Claude and re-launch.
+
 
 ## Features
 
