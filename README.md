@@ -15,7 +15,7 @@ pip install uv mcp requests
 ```
 
 ### 3. Configure Claude Desktop
-Go to Claude Desktop -> File -> Settings -> Developer -> Edit Config `claude_desktop_config.json` and change the path to your local repo path
+Go to Claude Desktop -> File -> Settings -> Developer -> Edit Config `claude_desktop_config.json` and change the path to your local repo path. If you already have `blender-mcp`, you may need to remove it so that it won't call Blender and Unreal at the same time.
 ```
   {
     "mcpServers": {
