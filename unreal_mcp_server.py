@@ -12,6 +12,7 @@ import re
 
 # Import modeling functions
 import unreal_modeling
+import composite_meshes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -526,7 +527,7 @@ def create_composite_mesh(ctx: Context, kwargs: str) -> str:
     """
     try:
         # Now properly pass the kwargs parameter to the implementation
-        return unreal_modeling.create_composite_mesh(ctx, kwargs)
+        return composite_meshes.create_composite_mesh(ctx, kwargs)
     except Exception as e:
         logger.error(f"Error in create_composite_mesh: {str(e)}")
         return f"Error creating composite mesh: {str(e)}"
