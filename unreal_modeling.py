@@ -413,6 +413,462 @@ def modify_actor(ctx: Context, kwargs):
         logger.error(f"Error creating composition: {str(e)}")
         return f"Error creating composition: {str(e)}"
 
+def spawn_actor_from_class(ctx: Context, kwargs):
+    """
+    Spawn a level actor based on an Unreal Blueprint class.
+    
+    Parameters passed through kwargs:
+    - actor_class: (required) path to the blueprint class (like '/Game/AssetName/Blueprints/BP_House0.BP_House0_C')
+    - actor_label/name: Name for the actor
+    - location: [x, y, z] location coordinates
+    - rotation: [pitch, yaw, roll] rotation in degrees
+    - scale: [x, y, z] scale factors
+    """
+    try:
+        unreal = get_unreal_connection()
+        
+        # Parse kwargs string into a dictionary if it's a string
+        params = parse_kwargs(kwargs)
+        logger.info(f"Parsed parameters: {params}")
+        
+        # Required parameter check
+        actor_class = params.get('actor_class') or params.get('ActorClass') or params.get('class')
+        if not actor_class:
+            return "Error: actor_class parameter is required. Provide the full path to the Blueprint class."
+        
+        # Get actor name
+        name = params.get('actor_label') or params.get('name') or "NewBlueprintActor"
+        
+        # Get location, rotation, scale
+        location = params.get('location', [0, 0, 0])
+        rotation = params.get('rotation', [0, 0, 0])
+        scale = params.get('scale', [1, 1, 1])
+        
+        # Convert to Unreal Engine format
+        if isinstance(location, list) and len(location) >= 3:
+            location_param = {"X": location[0], "Y": location[1], "Z": location[2]}
+        else:
+            location_param = {"X": 0, "Y": 0, "Z": 0}
+            
+        if isinstance(rotation, list) and len(rotation) >= 3:
+            rotation_param = {"Pitch": rotation[0], "Yaw": rotation[1], "Roll": rotation[2]}
+        else:
+            rotation_param = {"Pitch": 0, "Yaw": 0, "Roll": 0}
+        
+        # Step 1: Spawn the actor from the Blueprint class
+        spawn_result = unreal.send_command(
+            "/Script/EditorScriptingUtilities.Default__EditorLevelLibrary",
+            "SpawnActorFromClass",
+            {
+                "ActorClass": actor_class,
+                "Location": location_param,
+                "Rotation": rotation_param
+            }
+        )
+        
+        actor_path = spawn_result.get("ReturnValue", "")
+        
+        if not actor_path:
+            return f"Error: Failed to spawn actor from class: {actor_class}"
+        
+        # Step 2: Set actor scale
+        if isinstance(scale, list) and len(scale) >= 3:
+            unreal.send_command(
+                actor_path,
+                "SetActorScale3D",
+                {"NewScale3D": {"X": scale[0], "Y": scale[1], "Z": scale[2]}}
+            )
+        
+        # Step 3: Set actor name/label
+        unreal.send_command(
+            actor_path,
+            "SetActorLabel",
+            {"NewActorLabel": name}
+        )
+        
+        return f"Successfully created actor '{name}' from class '{actor_class}'"
+    except Exception as e:
+        logger.error(f"Error spawning actor from class: {str(e)}")
+        return f"Error spawning actor from class: {str(e)}"
+
+def spawn_static_mesh_actor_from_mesh(ctx: Context, kwargs):
+    """
+    Spawn a static mesh actor using an existing static mesh asset.
+    
+    Parameters passed through kwargs:
+    - static_mesh: (required) path to the static mesh asset (like '/Game/AssetName/Meshes/SM_KYT_Bench01')
+    - actor_label/name: Name for the actor
+    - location: [x, y, z] location coordinates
+    - rotation: [pitch, yaw, roll] rotation in degrees
+    - scale: [x, y, z] scale factors
+    - material_override: Path to material to use
+    - color: [r, g, b] color values (0.0-1.0)
+    """
+    try:
+        unreal = get_unreal_connection()
+        
+        # Parse kwargs string into a dictionary if it's a string
+        params = parse_kwargs(kwargs)
+        logger.info(f"Parsed parameters: {params}")
+        
+        # Required parameter check
+        static_mesh = params.get('static_mesh') or params.get('StaticMesh') or params.get('mesh')
+        if not static_mesh:
+            return "Error: static_mesh parameter is required. Provide the full path to the static mesh asset."
+        
+        # Get actor name
+        name = params.get('actor_label') or params.get('name') or "NewStaticMeshActor"
+        
+        # Get location, rotation, scale
+        location = params.get('location', [0, 0, 0])
+        rotation = params.get('rotation', [0, 0, 0])
+        scale = params.get('scale', [1, 1, 1])
+        
+        # Convert to Unreal Engine format
+        if isinstance(location, list) and len(location) >= 3:
+            location_param = {"X": location[0], "Y": location[1], "Z": location[2]}
+        else:
+            location_param = {"X": 0, "Y": 0, "Z": 0}
+            
+        if isinstance(rotation, list) and len(rotation) >= 3:
+            rotation_param = {"Pitch": rotation[0], "Yaw": rotation[1], "Roll": rotation[2]}
+        else:
+            rotation_param = {"Pitch": 0, "Yaw": 0, "Roll": 0}
+        
+        # Step 1: Spawn the static mesh actor
+        spawn_result = unreal.send_command(
+            "/Script/EditorScriptingUtilities.Default__EditorLevelLibrary",
+            "SpawnActorFromClass",
+            {
+                "ActorClass": "/Script/Engine.StaticMeshActor",
+                "Location": location_param,
+                "Rotation": rotation_param
+            }
+        )
+        
+        actor_path = spawn_result.get("ReturnValue", "")
+        
+        if not actor_path:
+            return "Error: Failed to spawn static mesh actor"
+        
+        # Step 2: Get the StaticMeshComponent
+        component_result = unreal.send_command(
+            actor_path,
+            "GetComponentByClass",
+            {"ComponentClass": "/Script/Engine.StaticMeshComponent"}
+        )
+        
+        component_path = component_result.get("ReturnValue", "")
+        
+        if not component_path:
+            return "Error: Failed to get StaticMeshComponent"
+        
+        # Step 3: Set the StaticMesh
+        unreal.send_command(
+            component_path,
+            "SetStaticMesh",
+            {"NewMesh": static_mesh}
+        )
+        
+        # Step 4: Set actor scale
+        if isinstance(scale, list) and len(scale) >= 3:
+            unreal.send_command(
+                actor_path,
+                "SetActorScale3D",
+                {"NewScale3D": {"X": scale[0], "Y": scale[1], "Z": scale[2]}}
+            )
+        
+        # Step 5: Set actor name/label
+        unreal.send_command(
+            actor_path,
+            "SetActorLabel",
+            {"NewActorLabel": name}
+        )
+        
+        # Step 6: Set material if provided
+        material_override = params.get('material_override')
+        material_color = params.get('material_color') or params.get('color')
+        
+        if material_override:
+            unreal.send_command(
+                component_path,
+                "SetMaterial",
+                {"ElementIndex": 0, "Material": material_override}
+            )
+        elif material_color and isinstance(material_color, list) and len(material_color) >= 3:
+            # Create a dynamic material instance
+            create_mat_result = unreal.send_command(
+                component_path,
+                "CreateDynamicMaterialInstance",
+                {"ElementIndex": 0, "SourceMaterial": "/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"}
+            )
+            
+            material_path = create_mat_result.get("ReturnValue", "")
+            
+            if material_path:
+                # Set the color parameter
+                unreal.send_command(
+                    material_path,
+                    "SetVectorParameterValue",
+                    {
+                        "ParameterName": "Color",
+                        "Value": {
+                            "R": material_color[0],
+                            "G": material_color[1],
+                            "B": material_color[2],
+                            "A": 1.0
+                        }
+                    }
+                )
+        
+        return f"Successfully created static mesh actor '{name}' using mesh '{static_mesh}'"
+    except Exception as e:
+        logger.error(f"Error spawning static mesh actor: {str(e)}")
+        return f"Error spawning static mesh actor: {str(e)}"
+
+def get_available_assets(ctx: Context, kwargs):
+    """
+    Get a list of available assets of a specific type in the project.
+    
+    Parameters passed through kwargs:
+    - asset_type: Type of assets to list (BlueprintClass, StaticMesh, Material, etc.)
+    - search_path: Optional path to search for assets (e.g., '/Game/AssetName')
+    - search_term: Optional term to filter results (e.g., 'House')
+    - max_results: Maximum number of results to return (default: 20)
+    - recursive: Whether to search recursively (default: True)
+    """
+    try:
+        unreal = get_unreal_connection()
+        
+        # Parse kwargs string into a dictionary if it's a string
+        params = parse_kwargs(kwargs)
+        logger.info(f"Parsed parameters: {params}")
+        
+        # Get parameters
+        asset_type = params.get('asset_type', 'All').lower()
+        search_path = params.get('search_path', '/Game')
+        search_term = params.get('search_term', '')
+        max_results = params.get('max_results', 20)
+        recursive = params.get('recursive', True)
+        
+        # Convert string boolean to actual boolean if needed
+        if isinstance(recursive, str):
+            recursive = recursive.lower() == 'true'
+        
+        # Map asset type strings to their common identifiers in paths and naming
+        asset_type_identifiers = {
+            'blueprint': ['/blueprint', '/blueprints', 'bp_', '_bp', '.bp'],
+            'staticmesh': ['/mesh', '/meshes', '/staticmesh', '/staticmeshes', 'sm_', '_sm', '.sm'],
+            'material': ['/material', '/materials', 'mat_', '_mat', '.mat', 'm_'],
+            'texture': ['/texture', '/textures', 't_', '_t', '.t'],
+            'sound': ['/sound', '/sounds', '/audio', 's_', '_s', '.s'],
+            'particle': ['/fx', '/effect', '/effects', '/particle', '/particles', 'fx_', 'p_', '_p'],
+            'animation': ['/anim', '/animation', '/animations', 'a_', '_a', '.a'],
+        }
+        
+        # Use the EditorAssetLibrary to get available assets
+        try:
+            # Get assets in the specified path
+            list_assets_result = unreal.send_command(
+                "/Script/EditorScriptingUtilities.Default__EditorAssetLibrary",
+                "ListAssets",
+                {
+                    "DirectoryPath": search_path,
+                    "Recursive": recursive,
+                    "IncludeFolder": True
+                }
+            )
+            
+            assets = list_assets_result.get("ReturnValue", [])
+            logger.info(f"Found {len(assets)} total assets in {search_path}")
+            
+            # Filter assets by type and search term
+            filtered_assets = []
+            
+            for asset_path in assets:
+                # Skip if empty
+                if not asset_path:
+                    continue
+                
+                # Path lowercase for case-insensitive matching
+                asset_path_lower = asset_path.lower()
+                
+                # Check asset type if specified
+                asset_type_match = True
+                if asset_type != 'all' and asset_type in asset_type_identifiers:
+                    identifiers = asset_type_identifiers[asset_type]
+                    # Check if any of the type identifiers exist in the path
+                    if not any(identifier in asset_path_lower for identifier in identifiers):
+                        asset_type_match = False
+                
+                # Check for search term match if specified
+                search_term_match = True
+                if search_term and search_term.lower() not in asset_path_lower:
+                    search_term_match = False
+                
+                # Add asset to filtered list if it matches all criteria
+                if asset_type_match and search_term_match:
+                    filtered_assets.append(asset_path)
+                
+                # Stop if we've reached the max results
+                if len(filtered_assets) >= max_results:
+                    break
+            
+            # Prepare the response
+            result = {
+                "asset_type": asset_type.capitalize() if asset_type != 'all' else "All",
+                "search_path": search_path,
+                "search_term": search_term,
+                "total_found": len(filtered_assets),
+                "assets": filtered_assets
+            }
+            
+            return json.dumps(result, indent=2)
+        
+        except Exception as e:
+            logger.error(f"Error using EditorAssetLibrary: {str(e)}")
+            
+            # Fall back to a different approach - try using GetAssetsByPath
+            try:
+                # This is an alternative approach that might work better
+                get_assets_result = unreal.send_command(
+                    "/Script/EditorScriptingUtilities.Default__EditorAssetLibrary",
+                    "GetAssetsByPath",
+                    {
+                        "DirectoryPath": search_path,
+                        "Recursive": recursive,
+                        "IncludeFolder": True
+                    }
+                )
+                
+                assets = get_assets_result.get("ReturnValue", [])
+                
+                # Filter and process as before
+                filtered_assets = []
+                for asset_path in assets:
+                    if not asset_path:
+                        continue
+                    
+                    # Path lowercase for case-insensitive matching
+                    asset_path_lower = asset_path.lower()
+                    
+                    # Check asset type if specified
+                    asset_type_match = True
+                    if asset_type != 'all' and asset_type in asset_type_identifiers:
+                        identifiers = asset_type_identifiers[asset_type]
+                        # Check if any of the type identifiers exist in the path
+                        if not any(identifier in asset_path_lower for identifier in identifiers):
+                            asset_type_match = False
+                    
+                    # Check for search term match if specified
+                    search_term_match = True
+                    if search_term and search_term.lower() not in asset_path_lower:
+                        search_term_match = False
+                    
+                    # Add asset to filtered list if it matches all criteria
+                    if asset_type_match and search_term_match:
+                        filtered_assets.append(asset_path)
+                    
+                    # Stop if we've reached the max results
+                    if len(filtered_assets) >= max_results:
+                        break
+                
+                result = {
+                    "asset_type": asset_type.capitalize() if asset_type != 'all' else "All",
+                    "search_path": search_path,
+                    "search_term": search_term,
+                    "total_found": len(filtered_assets),
+                    "assets": filtered_assets
+                }
+                
+                return json.dumps(result, indent=2)
+                
+            except Exception as e2:
+                logger.error(f"Alternative approach also failed: {str(e2)}")
+                return f"Error listing assets: {str(e)}. Alternative approach also failed: {str(e2)}"
+            
+    except Exception as e:
+        logger.error(f"Error getting available assets: {str(e)}")
+        return f"Error getting available assets: {str(e)}"
+
+def search_all_subdirs(ctx: Context, base_path, asset_type=None, search_term=None, max_results=50):
+    """
+    Search for assets in all known subdirectories of a base path.
+    
+    Parameters:
+    - base_path: The base path to search in (e.g., '/Game/KyotoAlley')
+    - asset_type: Optional type of assets to filter by
+    - search_term: Optional search term to filter results
+    - max_results: Maximum number of results per subdirectory
+    
+    Returns:
+    A combined JSON string with all the assets found.
+    """
+    # Common subdirectories in Unreal Engine projects
+    common_subdirs = [
+        "",  # Base directory itself
+        "/Blueprints",
+        "/Meshes", 
+        "/StaticMeshes",
+        "/Materials",
+        "/Textures",
+        "/FX",
+        "/Audio",
+        "/Animations"
+    ]
+    
+    # Prepare kwargs for each search
+    if asset_type:
+        asset_type_param = f"asset_type={asset_type} "
+    else:
+        asset_type_param = ""
+        
+    if search_term:
+        search_term_param = f"search_term={search_term} "
+    else:
+        search_term_param = ""
+        
+    max_results_param = f"max_results={max_results}"
+    
+    # Combined assets from all subdirectories
+    all_assets = []
+    
+    # Search in each subdirectory
+    for subdir in common_subdirs:
+        search_path = f"{base_path}{subdir}"
+        kwargs_str = f"{asset_type_param}search_path={search_path} {search_term_param}{max_results_param}"
+        
+        try:
+            # Get assets in this subdirectory
+            result_str = get_available_assets(ctx, kwargs_str)  # Fixed: list_available_assets → get_available_assets
+            result = json.loads(result_str)
+            
+            # Add assets to the combined list
+            if result and "assets" in result:
+                found_assets = result.get("assets", [])
+                all_assets.extend(found_assets)
+                logger.info(f"Found {len(found_assets)} assets in {search_path}")
+        except Exception as e:
+            logger.warning(f"Error searching in {search_path}: {str(e)}")
+            continue
+    
+    # Remove duplicates while preserving order
+    unique_assets = []
+    for asset in all_assets:
+        if asset not in unique_assets:
+            unique_assets.append(asset)
+    
+    # Prepare the combined result
+    combined_result = {
+        "asset_type": asset_type.capitalize() if asset_type else "All",
+        "search_path": base_path,
+        "search_term": search_term or "",
+        "total_found": len(unique_assets),
+        "assets": unique_assets[:max_results]  # Limit to max_results
+    }
+    
+    return json.dumps(combined_result, indent=2)
+
 def create_composite_mesh(ctx: Context, kwargs):
     """
     Create a composite mesh (multiple actors arranged in a specific way) in the Unreal Engine level.

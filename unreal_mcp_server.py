@@ -153,6 +153,54 @@ def get_unreal_connection():
 unreal_modeling.register_connection_getter(get_unreal_connection)
 
 @mcp.tool()
+def spawn_actor_from_blueprint(ctx: Context, kwargs: str) -> str:
+    """
+    Spawn a level actor based on an Unreal Blueprint class.
+    
+    Parameters:
+    - kwargs: String containing parameters as key=value pairs or JSON object
+      Example: "actor_class=/Game/AssetName/Blueprints/BP_House0.BP_House0_C location=100,100,0 name=MyHouse"
+      
+    Supported parameters:
+    - actor_class: (required) Path to the blueprint class
+    - actor_label/name: Name for the actor
+    - location: x,y,z location coordinates
+    - rotation: pitch,yaw,roll rotation in degrees
+    - scale: x,y,z scale factors
+    """
+    try:
+        # Pass the kwargs to the implementation in unreal_modeling.py
+        return unreal_modeling.spawn_actor_from_class(ctx, kwargs)
+    except Exception as e:
+        logger.error(f"Error in spawn_actor_from_blueprint: {str(e)}")
+        return f"Error spawning actor from blueprint: {str(e)}"
+
+@mcp.tool()
+def spawn_static_mesh(ctx: Context, kwargs: str) -> str:
+    """
+    Spawn a static mesh actor using an existing static mesh asset from the content browser.
+    
+    Parameters:
+    - kwargs: String containing parameters as key=value pairs or JSON object
+      Example: "static_mesh=/Game/AssetName/Meshes/Bench01 location=100,100,0 name=MyBench"
+      
+    Supported parameters:
+    - static_mesh: (required) Path to the static mesh asset
+    - actor_label/name: Name for the actor
+    - location: x,y,z location coordinates
+    - rotation: pitch,yaw,roll rotation in degrees
+    - scale: x,y,z scale factors
+    - material_override: Path to material to use
+    - color: r,g,b color values (0.0-1.0)
+    """
+    try:
+        # Pass the kwargs to the implementation in unreal_modeling.py
+        return unreal_modeling.spawn_static_mesh_actor_from_mesh(ctx, kwargs)
+    except Exception as e:
+        logger.error(f"Error in spawn_static_mesh: {str(e)}")
+        return f"Error spawning static mesh actor: {str(e)}"
+
+@mcp.tool()
 def get_level_info(ctx: Context) -> str:
     """Get information about the current Unreal Engine level"""
     try:
@@ -250,6 +298,7 @@ def get_level_info(ctx: Context) -> str:
     except Exception as e:
         logger.error(f"Error getting level info from Unreal Engine: {str(e)}")
         return f"Error getting level info: {str(e)}"
+
 @mcp.tool()
 def create_static_mesh_actor(ctx: Context, kwargs: str) -> str:
     """
@@ -264,7 +313,7 @@ def create_static_mesh_actor(ctx: Context, kwargs: str) -> str:
     - mesh_type: One of CUBE, SPHERE, CYLINDER, PLANE, CONE
     - location: x,y,z location coordinates
     - rotation: pitch,yaw,roll rotation in degrees
-    - scale: x,y,z scale factors
+    - scale: x,y,z scale factors. 1 means same scale (100%)
     - color: r,g,b color values (0.0-1.0)
     """
     try:
@@ -472,7 +521,7 @@ def create_composite_mesh(ctx: Context, kwargs: str) -> str:
     - shape/composition_type: Type of composition (TOWER, WALL, STAIRS, TABLE_CHAIR, HOUSE)
     - label/name: Optional base name for the actors
     - location: Optional base x,y,z location coordinates
-    - size/scale: Optional base x,y,z scale factors
+    - size/scale: Optional base x,y,z scale factors (default: 1)
     - color: Optional r,g,b color values (0.0-1.0)
     """
     try:
@@ -481,6 +530,28 @@ def create_composite_mesh(ctx: Context, kwargs: str) -> str:
     except Exception as e:
         logger.error(f"Error in create_composite_mesh: {str(e)}")
         return f"Error creating composite mesh: {str(e)}"
+
+@mcp.tool()
+def list_available_assets(ctx: Context, kwargs: str) -> str:
+    """
+    List available assets of a specific type in the Unreal Engine project.
+    
+    Parameters:
+    - kwargs: String containing parameters as key=value pairs or JSON object
+      Example: "asset_type=StaticMesh search_path=/Game/AssetName search_term=House"
+      
+    Supported parameters:
+    - asset_type: Type of assets to list (BlueprintClass, StaticMesh, Material, etc.)
+    - search_path: Optional path to search for assets (default: /Game)
+    - search_term: Optional term to filter results
+    - max_results: Maximum number of results to return (default: 20)
+    """
+    try:
+        # Pass the kwargs to the implementation in unreal_modeling.py
+        return unreal_modeling.get_available_assets(ctx, kwargs)
+    except Exception as e:
+        logger.error(f"Error in list_available_assets: {str(e)}")
+        return f"Error listing available assets: {str(e)}"
 
 @mcp.tool()
 def get_actor_info(ctx: Context, actor_label: str) -> str:
@@ -555,7 +626,7 @@ def get_actor_info(ctx: Context, actor_label: str) -> str:
         try:
             scale_result = unreal.send_command(
                 actor_path,
-                "SetActorScale3D"
+                "GetActorScale3D"
             )
             info["scale"] = scale_result.get("ReturnValue", {})
         except Exception as e:
@@ -625,6 +696,27 @@ def get_actor_info(ctx: Context, actor_label: str) -> str:
     except Exception as e:
         logger.error(f"Error getting actor info from Unreal Engine: {str(e)}")
         return f"Error getting actor info: {str(e)}"
+
+@mcp.tool()
+def search_assets_recursively(ctx: Context, base_path: str, asset_type: str = None, search_term: str = None, max_results: int = 50) -> str:
+    """
+    Search for assets recursively in all common subdirectories.
+    
+    Parameters:
+    - base_path: The base path to search in (e.g., '/Game/KyotoAlley')
+    - asset_type: Optional type of assets to filter by
+    - search_term: Optional search term to filter results
+    - max_results: Maximum number of results (default: 50)
+    """
+    try:
+        # Use the search_all_subdirs function from unreal_modeling
+        from unreal_modeling import search_all_subdirs
+        return search_all_subdirs(ctx, base_path, asset_type, search_term, max_results)
+    except Exception as e:
+        logger.error(f"Error in search_assets_recursively: {str(e)}")
+        return f"Error searching assets recursively: {str(e)}"
+
+
 # If this module is run directly, start the server
 if __name__ == "__main__":
     try:
@@ -635,3 +727,4 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Error running UnrealMCP server: {str(e)}")
         traceback.print_exc()
+
