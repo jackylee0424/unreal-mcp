@@ -33,6 +33,9 @@ Leave your UE project open
 ### 5. Launch Claude Desktop
 Need to launch it clean. Claude Desktop may hide in the system tray. Quit Claude and re-launch.
 
+## Development
+- `pip install mcp[cli]`
+- `mcp dev unreal_mcp_server.py`
 
 ## Features
 
