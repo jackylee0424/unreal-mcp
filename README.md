@@ -2,7 +2,10 @@
 
 This repository contains a Model Context Protocol (MCP) Python server that allows Claude Desktop to interact with Unreal Engine 5.3 (via Remote Control API), creating and manipulating 3D objects based on text prompts. This integration enables Claude to build and modify 3D scenes in Unreal Engine through natural language, representing an early step toward text-to-game-generation technology. 
 
-By bridging AI language models with professional game engines, this project lays groundwork for future systems where complete game environments can be generated from textual descriptions.
+Current Features:
+- use Claude Desktop text prompts to arrange assets in Unreal Engine Editor
+- create static meshes for assembling primitive shapes
+- look up Unreal project folder for assets
 
 ## Quick Start
 
