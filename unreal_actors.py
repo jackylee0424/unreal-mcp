@@ -396,6 +396,49 @@ def get_actor_info(actor_label: str) -> str:
         except Exception as e:
             logger.warning(f"Could not get scale for actor {actor_path}: {str(e)}")
             info["scale"] = "Not available"
+            
+        # Get bounding box
+        try:
+            # GetActorBounds returns Origin and BoxExtent
+            bounds_result = unreal.send_command(
+                actor_path,
+                "GetActorBounds",
+                {"bOnlyCollidingComponents": False}
+            )
+            
+            if bounds_result:
+                origin = bounds_result.get("Origin", {})
+                box_extent = bounds_result.get("BoxExtent", {})
+                
+                # Calculate min and max points of the bounding box
+                min_point = {
+                    "X": origin.get("X", 0) - box_extent.get("X", 0),
+                    "Y": origin.get("Y", 0) - box_extent.get("Y", 0),
+                    "Z": origin.get("Z", 0) - box_extent.get("Z", 0)
+                }
+                
+                max_point = {
+                    "X": origin.get("X", 0) + box_extent.get("X", 0),
+                    "Y": origin.get("Y", 0) + box_extent.get("Y", 0),
+                    "Z": origin.get("Z", 0) + box_extent.get("Z", 0)
+                }
+                
+                info["bounding_box"] = {
+                    "origin": origin,
+                    "extent": box_extent,
+                    "min": min_point,
+                    "max": max_point,
+                    "size": {
+                        "X": box_extent.get("X", 0) * 2,
+                        "Y": box_extent.get("Y", 0) * 2,
+                        "Z": box_extent.get("Z", 0) * 2
+                    }
+                }
+            else:
+                info["bounding_box"] = "Not available"
+        except Exception as e:
+            logger.warning(f"Could not get bounding box for actor {actor_path}: {str(e)}")
+            info["bounding_box"] = "Not available"
         
         # Determine actor type from path
         actor_type = "Unknown"
@@ -429,6 +472,18 @@ def get_actor_info(actor_label: str) -> str:
                     info["material"] = material_result.get("ReturnValue", "")
                 except Exception:
                     info["material"] = "Not available"
+                    
+                # Get component bounds for more accurate mesh bounds
+                try:
+                    comp_bounds_result = unreal.send_command(
+                        component_path,
+                        "GetBounds"
+                    )
+                    if comp_bounds_result:
+                        bounds = comp_bounds_result.get("ReturnValue", {})
+                        info["component_bounds"] = bounds
+                except Exception as e:
+                    logger.warning(f"Could not get component bounds for {component_path}: {str(e)}")
         elif "Light" in actor_path:
             actor_type = "Light"
         elif "PlayerStart" in actor_path:
