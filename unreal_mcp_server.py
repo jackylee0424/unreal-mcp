@@ -104,7 +104,7 @@ def spawn_static_mesh(ctx: Context, kwargs: str) -> str:
 
 @mcp.tool()
 def get_level_info(ctx: Context) -> str:
-    """Get information about the current Unreal Engine level"""
+    """Get information about the current Unreal Engine level. Unreal Engine units are in centimeter."""
     try:
         from unreal_assets import get_level_info as get_level
         return get_level()
