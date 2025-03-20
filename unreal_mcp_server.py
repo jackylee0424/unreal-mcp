@@ -53,6 +53,20 @@ mcp = FastMCP(
 )
 
 # Register all tools
+@mcp.tool()
+def delete_actor(ctx: Context, actor_label: str) -> str:
+    """
+    Delete a specific actor from the Unreal Engine level.
+    
+    Parameters:
+    - actor_label: The label/name of the actor to delete
+    """
+    try:
+        from unreal_actors import delete_actor as del_actor
+        return del_actor(actor_label)
+    except Exception as e:
+        logger.error(f"Error in delete_actor: {str(e)}")
+        return f"Error deleting actor: {str(e)}"
 
 @mcp.tool()
 def spawn_actor_from_blueprint(ctx: Context, kwargs: str) -> str:

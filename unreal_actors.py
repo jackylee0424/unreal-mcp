@@ -297,7 +297,7 @@ def modify_actor(kwargs_str) -> str:
             unreal.send_command(
                 actor_path,
                 "SetActorHiddenInGame",
-                {"bNewHidden": not visible}
+                {"NewHidden": not visible}
             )
         
         # Set material color if provided
@@ -503,3 +503,33 @@ def get_actor_info(actor_label: str) -> str:
     except Exception as e:
         logger.error(f"Error in get_actor_info: {str(e)}")
         return f"Error getting actor info: {str(e)}"
+
+def delete_actor(actor_label: str) -> str:
+    """
+    Delete an actor from the current level by its label
+    
+    Args:
+        actor_label: Label of the actor to delete
+        
+    Returns:
+        Success or error message
+    """
+    try:
+        unreal = get_unreal_connection()
+        
+        # Find the actor
+        actor_path = unreal.find_actor_by_label(actor_label)
+        
+        if not actor_path:
+            return f"Actor '{actor_label}' not found in the current level."
+        
+        # Call DestroyActor on the actor
+        result = unreal.send_command(
+            actor_path,
+            "DestroyActor",
+            {"ActorTarget": actor_path}
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in delete_actor: {str(e)}")
+        return f"Error deleting actor: {str(e)}"
