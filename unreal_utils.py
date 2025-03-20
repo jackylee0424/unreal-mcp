@@ -194,11 +194,11 @@ BASIC_SHAPES = {
 
 # Asset type identifiers for searching
 ASSET_TYPE_IDENTIFIERS = {
-    'blueprint': ['/blueprint', '/blueprints', 'bp_', '_bp', '.bp'],
-    'staticmesh': ['/mesh', '/meshes', '/staticmesh', '/staticmeshes', 'sm_', '_sm', '.sm'],
-    'material': ['/material', '/materials', 'mat_', '_mat', '.mat', 'm_'],
-    'texture': ['/texture', '/textures', 't_', '_t', '.t'],
-    'sound': ['/sound', '/sounds', '/audio', 's_', '_s', '.s'],
+    'blueprint': ['/blueprint', '/blueprints', 'bp_', '_bp'],
+    'staticmesh': ['/mesh', '/meshes', '/staticmesh', '/staticmeshes', 'sm_', '_sm'],
+    'material': ['/material', '/materials', 'mat_', '_mat', 'm_'],
+    'texture': ['/texture', '/textures', 't_', '_t'],
+    'sound': ['/sound', '/sounds', '/audio', 's_', '_s'],
     'particle': ['/fx', '/effect', '/effects', '/particle', '/particles', 'fx_', 'p_', '_p'],
-    'animation': ['/anim', '/animation', '/animations', 'a_', '_a', '.a'],
+    'animation': ['/anim', '/animation', '/animations', 'a_', '_a'],
 }
