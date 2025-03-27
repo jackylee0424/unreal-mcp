@@ -20,39 +20,64 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("UnrealMCPServer")
 
+# Global spatial context to track all actors
+spatial_context: Dict[str, Dict[str, str]] = {}
+
 @asynccontextmanager
 async def server_lifespan(server: FastMCP) -> AsyncIterator[Dict[str, Any]]:
     """Manage server startup and shutdown lifecycle"""
-    
+    global spatial_context
     try:
         logger.info("UnrealMCP server starting up")
         
-        # Try to connect to Unreal Engine on startup to verify it's available
+        # Try to connect to Unreal Engine on startup
         try:
             unreal = get_unreal_connection()
             if unreal.test_connection():
                 logger.info("Successfully connected to Unreal Engine on startup")
             else:
                 logger.warning("Could not connect to Unreal Engine on startup")
-                logger.warning("Make sure Unreal Engine is running with the Remote Control API enabled")
         except Exception as e:
             logger.warning(f"Could not connect to Unreal Engine on startup: {str(e)}")
-            logger.warning("Make sure Unreal Engine is running with Remote Control API enabled before using Unreal resources or tools")
         
-        # Return an empty context
+        # Initialize spatial context (could load from Unreal if needed)
+        spatial_context = {}
         yield {}
     finally:
-        # Shutdown logging
         logger.info("UnrealMCP server shut down")
+        spatial_context.clear()
 
 # Create the MCP server with lifespan support
 mcp = FastMCP(
     "UnrealMCP",
-    description="Unreal Engine integration through the Model Context Protocol",
+    description="Unreal Engine integration with spatial context tracking",
     lifespan=server_lifespan
 )
 
-# Register all tools
+# Tool to get the current spatial context
+@mcp.tool()
+def get_spatial_context(ctx: Context) -> str:
+    """Return the current spatial context of all actors as a JSON string."""
+    global spatial_context
+    try:
+        return json.dumps(spatial_context, indent=2)
+    except Exception as e:
+        logger.error(f"Error in get_spatial_context: {str(e)}")
+        return f"Error retrieving spatial context: {str(e)}"
+
+# Tool to reset the spatial context
+@mcp.tool()
+def reset_spatial_context(ctx: Context) -> str:
+    """Reset the spatial context, clearing all tracked actors."""
+    global spatial_context
+    try:
+        spatial_context.clear()
+        return "Spatial context reset successfully."
+    except Exception as e:
+        logger.error(f"Error in reset_spatial_context: {str(e)}")
+        return f"Error resetting spatial context: {str(e)}"
+
+# Modified existing tools to update spatial context
 @mcp.tool()
 def delete_actor(ctx: Context, actor_label: str) -> str:
     """
@@ -61,9 +86,12 @@ def delete_actor(ctx: Context, actor_label: str) -> str:
     Parameters:
     - actor_label: The label/name of the actor to delete
     """
+    global spatial_context
     try:
         from unreal_actors import delete_actor as del_actor
-        return del_actor(actor_label)
+        result = del_actor(actor_label)
+        spatial_context.pop(actor_label, None)  # Remove from context
+        return result
     except Exception as e:
         logger.error(f"Error in delete_actor: {str(e)}")
         return f"Error deleting actor: {str(e)}"
@@ -84,9 +112,19 @@ def spawn_actor_from_blueprint(ctx: Context, kwargs: str) -> str:
     - rotation: pitch,yaw,roll rotation in degrees
     - scale: x,y,z scale factors
     """
+    global spatial_context
     try:
         from unreal_actors import spawn_actor_from_blueprint as spawn_bp
-        return spawn_bp(kwargs)
+        result = spawn_bp(kwargs)
+        # Parse kwargs to update spatial context
+        params = dict(kv.split("=") for kv in kwargs.split() if "=" in kv)
+        actor_label = params.get("actor_label", params.get("name", f"Actor_{len(spatial_context)}"))
+        spatial_context[actor_label] = {
+            "location": params.get("location", "0,0,0"),
+            "rotation": params.get("rotation", "0,0,0"),
+            "scale": params.get("scale", "1,1,1")
+        }
+        return result
     except Exception as e:
         logger.error(f"Error in spawn_actor_from_blueprint: {str(e)}")
         return f"Error spawning actor from blueprint: {str(e)}"
@@ -109,22 +147,21 @@ def spawn_static_mesh(ctx: Context, kwargs: str) -> str:
     - material_override: Path to material to use
     - color: r,g,b color values (0.0-1.0)
     """
+    global spatial_context
     try:
         from unreal_actors import spawn_static_mesh_actor_from_mesh
-        return spawn_static_mesh_actor_from_mesh(kwargs)
+        result = spawn_static_mesh_actor_from_mesh(kwargs)
+        params = dict(kv.split("=") for kv in kwargs.split() if "=" in kv)
+        actor_label = params.get("actor_label", params.get("name", f"Mesh_{len(spatial_context)}"))
+        spatial_context[actor_label] = {
+            "location": params.get("location", "0,0,0"),
+            "rotation": params.get("rotation", "0,0,0"),
+            "scale": params.get("scale", "1,1,1")
+        }
+        return result
     except Exception as e:
         logger.error(f"Error in spawn_static_mesh: {str(e)}")
         return f"Error spawning static mesh actor: {str(e)}"
-
-@mcp.tool()
-def get_level_info(ctx: Context) -> str:
-    """Get information about the current Unreal Engine level. Unreal Engine units are in centimeter."""
-    try:
-        from unreal_assets import get_level_info as get_level
-        return get_level()
-    except Exception as e:
-        logger.error(f"Error in get_level_info: {str(e)}")
-        return f"Error getting level info: {str(e)}"
 
 @mcp.tool()
 def create_static_mesh_actor(ctx: Context, kwargs: str) -> str:
@@ -143,9 +180,18 @@ def create_static_mesh_actor(ctx: Context, kwargs: str) -> str:
     - scale: x,y,z scale factors. 1 means same scale (100%)
     - color: r,g,b color values (0.0-1.0)
     """
+    global spatial_context
     try:
         from unreal_actors import create_static_mesh_actor as create_mesh
-        return create_mesh(kwargs)
+        result = create_mesh(kwargs)
+        params = dict(kv.split("=") for kv in kwargs.split() if "=" in kv)
+        actor_label = params.get("actor_label", params.get("name", f"Mesh_{len(spatial_context)}"))
+        spatial_context[actor_label] = {
+            "location": params.get("location", "0,0,0"),
+            "rotation": params.get("rotation", "0,0,0"),
+            "scale": params.get("scale", "1,1,1")
+        }
+        return result
     except Exception as e:
         logger.error(f"Error in create_static_mesh_actor: {str(e)}")
         return f"Error creating static mesh actor: {str(e)}"
@@ -167,12 +213,51 @@ def modify_actor(ctx: Context, kwargs: str) -> str:
     - visible: true/false to set visibility
     - color: r,g,b color values (0.0-1.0)
     """
+    global spatial_context
     try:
         from unreal_actors import modify_actor as mod_actor
-        return mod_actor(kwargs)
+        result = mod_actor(kwargs)
+        params = dict(kv.split("=") for kv in kwargs.split() if "=" in kv)
+        actor_label = params["actor_label"]
+        if actor_label in spatial_context:
+            spatial_context[actor_label].update({
+                k: params[k] for k in ["location", "rotation", "scale"] if k in params
+            })
+        return result
     except Exception as e:
         logger.error(f"Error in modify_actor: {str(e)}")
         return f"Error modifying actor: {str(e)}"
+
+@mcp.tool()
+def get_level_info(ctx: Context) -> str:
+    """Get information about the current Unreal Engine level and update spatial context."""
+    global spatial_context
+    try:
+        from unreal_assets import get_level_info as get_level
+        level_info = get_level()  # Get the level info from Unreal Engine
+        
+        # Assuming level_info is a JSON string or similar format with actor data
+        # If it's not JSON, you'd need to adjust the parsing logic accordingly
+        try:
+            level_data = json.loads(level_info)  # Parse the level info if it's JSON
+            if isinstance(level_data, dict) and "actors" in level_data:
+                # Clear existing spatial context and update with new actor data
+                spatial_context.clear()
+                for actor in level_data["actors"]:
+                    actor_label = actor.get("actor_label", actor.get("name", f"Actor_{len(spatial_context)}"))
+                    spatial_context[actor_label] = {
+                        "location": actor.get("location", "0,0,0"),
+                        "rotation": actor.get("rotation", "0,0,0"),
+                        "scale": actor.get("scale", "1,1,1")
+                    }
+        except json.JSONDecodeError:
+            # If level_info isn't JSON or doesn't contain actor data, just return it as-is
+            logger.info("Level info not in expected JSON format, spatial context unchanged")
+        
+        return level_info  # Return the original level info string
+    except Exception as e:
+        logger.error(f"Error in get_level_info: {str(e)}")
+        return f"Error getting level info: {str(e)}"
 
 @mcp.tool()
 def list_available_assets(ctx: Context, kwargs: str) -> str:
@@ -229,7 +314,6 @@ def search_assets_recursively(ctx: Context, base_path: str, asset_type: str = No
         logger.error(f"Error in search_assets_recursively: {str(e)}")
         return f"Error searching assets recursively: {str(e)}"
 
-# If this module is run directly, start the server
 if __name__ == "__main__":
     try:
         logger.info("Starting UnrealMCP server...")
